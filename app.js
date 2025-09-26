@@ -162,12 +162,30 @@ function handleData(d) {
   let actualNewData = false;
   
   // Check if this is genuinely new LoRa data
-  if (typeof d.timestamp === "number" && d.timestamp !== lastTimestamp) {
-    changed = true;
-    actualNewData = true;
-    lastTimestamp = d.timestamp;
-    lastSeenAt = Date.now();
-    console.log("📡 New LoRa data received at timestamp:", d.timestamp);
+  if (typeof d.timestamp === "number") {
+    // On first load (lastTimestamp is null), check if data is recent
+    if (lastTimestamp === null) {
+      // Data is only considered "new" if timestamp is within last 30 seconds
+      const dataAge = Date.now() - d.timestamp;
+      if (dataAge <= 30000) {
+        changed = true;
+        actualNewData = true;
+        lastSeenAt = Date.now();
+        console.log("📡 Recent LoRa data found on startup, age:", Math.round(dataAge/1000) + "s");
+      } else {
+        // Old data from cache - don't treat as new
+        lastSeenAt = d.timestamp; // Set lastSeenAt to actual data timestamp
+        console.log("📡 Old cached data found, age:", Math.round(dataAge/1000) + "s");
+      }
+      lastTimestamp = d.timestamp;
+    } else if (d.timestamp !== lastTimestamp) {
+      // Subsequent fetches - only new if timestamp changed
+      changed = true;
+      actualNewData = true;
+      lastTimestamp = d.timestamp;
+      lastSeenAt = Date.now();
+      console.log("📡 New LoRa data received at timestamp:", d.timestamp);
+    }
   }
   
   // Always update labels to show current data (even if old)
@@ -195,15 +213,45 @@ function handleData(d) {
   }
   
   // Show age based on when we last saw NEW data
-  ageLabel.textContent = lastSeenAt ? relTime(Date.now() - lastSeenAt) : "—";
+  if (lastSeenAt) {
+    const timeSinceLastSeen = Date.now() - lastSeenAt;
+    
+    if (timeSinceLastSeen > 120000) {
+      // Over 2 minutes - show "Last detected at [time]"
+      const lastDetectedTime = new Date(lastSeenAt).toLocaleTimeString();
+      ageLabel.textContent = `Last detected at ${lastDetectedTime}`;
+    } else {
+      // Under 2 minutes - show relative time
+      ageLabel.textContent = relTime(timeSinceLastSeen);
+    }
+  } else {
+    ageLabel.textContent = "—";
+  }
 
   // Map - always show current position
   const latlng = [d.lat, d.lng];
+  const mapTimeSinceLastSeen = lastSeenAt ? Date.now() - lastSeenAt : 0;
+  const isBoatMissing = mapTimeSinceLastSeen > 120000;
+  
   if (!marker) {
-    marker = L.marker(latlng, { title: d.boatId || config.boatId }).addTo(map);
+    marker = L.marker(latlng, { 
+      title: d.boatId || config.boatId,
+      opacity: isBoatMissing ? 0.5 : 1.0
+    }).addTo(map);
   } else {
     marker.setLatLng(latlng);
+    marker.setOpacity(isBoatMissing ? 0.5 : 1.0);
   }
+  
+  // Update marker popup with status
+  const statusText = isBoatMissing ? 'Last Known Position' : 'Current Position';
+  marker.bindPopup(`
+    <div style="text-align: center;">
+      <strong>${statusText}</strong><br>
+      <em>${placeName}</em><br>
+      <small>${isBoatMissing ? 'Signal lost' : 'Active'}</small>
+    </div>
+  `);
 
   if (!firstFixDone) {
     map.setView(latlng, 15, { animate: true });
@@ -218,11 +266,41 @@ function handleData(d) {
     trail.setLatLngs(trailCoords);
   }
 
-  // Live badge based on data freshness
+  // Live badge based on data freshness and connection status
   const isFresh = isDataFresh();
-  liveBadge.classList.toggle("ok", isFresh);
-  liveBadge.classList.toggle("warn", !isFresh);
-  liveBadge.textContent = isFresh ? "LIVE" : "STALE";
+  const timeSinceLastSeen = lastSeenAt ? Date.now() - lastSeenAt : null;
+  const noBoatThreshold = 120000; // 2 minutes in milliseconds
+  
+  // Determine badge state
+  let badgeState = "WAITING";
+  let badgeClass = "warn";
+  
+  if (timeSinceLastSeen !== null) {
+    if (timeSinceLastSeen <= 45000) {
+      // Fresh data within 45 seconds
+      badgeState = "LIVE";
+      badgeClass = "ok";
+    } else if (timeSinceLastSeen <= noBoatThreshold) {
+      // Stale data but within 2 minutes
+      badgeState = "STALE";
+      badgeClass = "warn";
+    } else {
+      // No data for over 2 minutes
+      badgeState = "NO BOAT";
+      badgeClass = "no-boat";
+    }
+  }
+  
+  liveBadge.classList.remove("ok", "warn", "no-boat");
+  liveBadge.classList.add(badgeClass);
+  liveBadge.textContent = badgeState;
+  
+  // Enhanced debug logging
+  if (lastSeenAt) {
+    const ageSeconds = Math.round(timeSinceLastSeen/1000);
+    const ageMinutes = Math.round(ageSeconds/60);
+    console.log(`🔍 Status: ${badgeState}, age: ${ageSeconds}s (${ageMinutes}m)`);
+  }
 }
 
 function addToTrail(latlng) {
@@ -241,8 +319,17 @@ function addToTrail(latlng) {
 }
 
 function isDataFresh() {
-  // Fresh if we observed a NEW LoRa data change within last 30s (more strict)
-  return !!lastSeenAt && (Date.now() - lastSeenAt <= 30000);
+  if (!lastSeenAt) return false;
+  
+  // If lastSeenAt is actually the timestamp of old data (not current time), 
+  // check if that data timestamp is recent
+  const now = Date.now();
+  const timeSinceLastSeen = now - lastSeenAt;
+  
+  // Consider data fresh if:
+  // 1. We saw new data within last 45 seconds (actualNewData case), OR
+  // 2. The data timestamp itself is within last 45 seconds (cached but recent)
+  return timeSinceLastSeen <= 45000;
 }
 
 function relTime(ms) {
