@@ -46,9 +46,10 @@ let trailCoords = [];
 let firstFixDone = false;
 let lastTimestamp = null;
 let fetchTimer = null;
-let lastSeenAt = null;       // wall-clock when we last detected a change
+let lastSeenAt = null;       // wall-clock when we last detected a NEW change from LoRa
 let lastUpdateSeen = null;   // last value of d.lastUpdate for change detection
 let follow = true;           // keep view centered on marker
+let appStartTime = Date.now(); // Track when app started
 
 init();
 
@@ -156,7 +157,20 @@ function handleData(d) {
     return;
   }
 
-  // Labels
+  // Change detection: only use timestamp from LoRa data, not lastUpdate
+  let changed = false;
+  let actualNewData = false;
+  
+  // Check if this is genuinely new LoRa data
+  if (typeof d.timestamp === "number" && d.timestamp !== lastTimestamp) {
+    changed = true;
+    actualNewData = true;
+    lastTimestamp = d.timestamp;
+    lastSeenAt = Date.now();
+    console.log("📡 New LoRa data received at timestamp:", d.timestamp);
+  }
+  
+  // Always update labels to show current data (even if old)
   boatIdLabel.textContent = d.boatId || config.boatId;
   const placeName = getPlaceName(d.lat, d.lng);
   placeNameLabel.textContent = placeName;
@@ -165,32 +179,25 @@ function handleData(d) {
   rssiLabel.textContent = d.rssi ?? "—";
   snrLabel.textContent = d.snr ?? "—";
   
-  // Store last known location for persistence
-  localStorage.setItem('lastLocation', JSON.stringify({
-    lat: d.lat,
-    lng: d.lng,
-    timestamp: Date.now(),
-    placeName: placeName
-  }));
-  
-  // Store in location history
-  addToLocationHistory(d.lat, d.lng, placeName);
-
-  // Change detection: only use timestamp from LoRa data, not lastUpdate
-  let changed = false;
-  if (typeof d.timestamp === "number" && d.timestamp !== lastTimestamp) {
-    changed = true;
-    lastTimestamp = d.timestamp;
+  // Only store and track location if it's actually new data
+  if (actualNewData) {
+    // Store last known location for persistence
+    localStorage.setItem('lastLocation', JSON.stringify({
+      lat: d.lat,
+      lng: d.lng,
+      timestamp: Date.now(),
+      placeName: placeName
+    }));
+    
+    // Store in location history
+    addToLocationHistory(d.lat, d.lng, placeName);
+    console.log(`🗺️ Map updated - Lat: ${d.lat.toFixed(6)}, Lng: ${d.lng.toFixed(6)}, RSSI: ${d.rssi}, SNR: ${d.snr}`);
   }
   
-  if (changed) {
-    lastSeenAt = Date.now();
-    console.log("📡 New LoRa data received at timestamp:", d.timestamp);
-  }
-  
+  // Show age based on when we last saw NEW data
   ageLabel.textContent = lastSeenAt ? relTime(Date.now() - lastSeenAt) : "—";
 
-  // Map
+  // Map - always show current position
   const latlng = [d.lat, d.lng];
   if (!marker) {
     marker = L.marker(latlng, { title: d.boatId || config.boatId }).addTo(map);
@@ -205,20 +212,17 @@ function handleData(d) {
 
   if (follow) map.panTo(latlng, { animate: true });
 
-  // Trail
-  addToTrail(latlng);
-  trail.setLatLngs(trailCoords);
+  // Only update trail if it's genuinely new data
+  if (actualNewData) {
+    addToTrail(latlng);
+    trail.setLatLngs(trailCoords);
+  }
 
-  // Live badge
+  // Live badge based on data freshness
   const isFresh = isDataFresh();
   liveBadge.classList.toggle("ok", isFresh);
   liveBadge.classList.toggle("warn", !isFresh);
   liveBadge.textContent = isFresh ? "LIVE" : "STALE";
-
-  // Only log when we have actual new data
-  if (changed) {
-    console.log(`🗺️ Map updated - Lat: ${d.lat.toFixed(6)}, Lng: ${d.lng.toFixed(6)}, RSSI: ${d.rssi}, SNR: ${d.snr}`);
-  }
 }
 
 function addToTrail(latlng) {
@@ -237,8 +241,8 @@ function addToTrail(latlng) {
 }
 
 function isDataFresh() {
-  // Fresh if we observed a change within last 15s (client-wall clock)
-  return !!lastSeenAt && (Date.now() - lastSeenAt <= 15000);
+  // Fresh if we observed a NEW LoRa data change within last 30s (more strict)
+  return !!lastSeenAt && (Date.now() - lastSeenAt <= 30000);
 }
 
 function relTime(ms) {
@@ -359,11 +363,17 @@ function addToLocationHistory(lat, lng, placeName) {
     date: new Date().toISOString()
   };
   
-  // Don't add if it's the same location as the last entry
+  // Don't add if it's the same location as the last entry (avoid duplicates when device is off)
   if (history.length > 0) {
     const lastEntry = history[history.length - 1];
     const distance = haversineMeters(lat, lng, lastEntry.lat, lastEntry.lng);
-    if (distance < 10) return; // Skip if less than 10m from last entry
+    const timeDiff = newEntry.timestamp - lastEntry.timestamp;
+    
+    // Skip if same location (< 10m) AND recent (< 5 minutes)
+    if (distance < 10 && timeDiff < 300000) {
+      console.log(`📍 Skipping duplicate location entry (${distance.toFixed(1)}m away, ${Math.round(timeDiff/1000)}s ago)`);
+      return;
+    }
   }
   
   history.push(newEntry);
@@ -374,6 +384,7 @@ function addToLocationHistory(lat, lng, placeName) {
   }
   
   localStorage.setItem('locationHistory', JSON.stringify(history));
+  console.log(`📍 Added location to history: ${placeName}`);
 }
 
 function getLocationHistory() {
