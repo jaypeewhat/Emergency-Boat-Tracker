@@ -57,6 +57,9 @@ let lastAlertId = localStorage.getItem('lastAlertId') || null;
 // Cached custom marker icons for status
 let statusMarkerIcons = null;
 
+// Audio element handle
+let sirenEl = null;
+
 init();
 
 function init() {
@@ -123,6 +126,21 @@ function init() {
 
   startPolling();
   startAlertPolling();
+
+  // Cache siren audio element if present
+  sirenEl = document.getElementById('sirenAudio');
+  if (sirenEl) {
+    sirenEl.volume = 0.7;
+  }
+
+  // Expose a global stop function for the Close button
+  window.__stopEmergencyBanner = () => {
+    const banner = document.getElementById('emergencyBanner');
+    if (banner) banner.classList.remove('show');
+    if (sirenEl) {
+      try { sirenEl.pause(); sirenEl.currentTime = 0; } catch {}
+    }
+  };
 }
 
 function startPolling() {
@@ -653,17 +671,26 @@ function showEmergencyBanner(alert) {
   }
   banner.classList.add('show');
   
-  // Play alarm sound
-  try {
-    const audio = new Audio('assets/emergency-alarmsiren-type-01-no-copyright-410303.mp3');
-    audio.volume = 0.7;
-    audio.play().catch(() => console.log('Audio play blocked by browser'));
-  } catch (e) {
-    console.log('Audio not available:', e);
+  // Play alarm sound (looping) via preloaded element
+  if (sirenEl) {
+    try {
+      sirenEl.currentTime = 0;
+      const playPromise = sirenEl.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => {
+          // Autoplay might be blocked on some browsers until a user gesture; still try silently
+        });
+      }
+    } catch {}
   }
   
   // auto-hide after 1 minute (kept accessible via Close button)
-  setTimeout(() => banner.classList.remove('show'), 60000);
+  setTimeout(() => {
+    banner.classList.remove('show');
+    if (sirenEl) {
+      try { sirenEl.pause(); sirenEl.currentTime = 0; } catch {}
+    }
+  }, 60000);
 }
 
 function pushNotification(alert) {

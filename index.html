@@ -32,9 +32,12 @@
     <div class="inner">
       <span class="icon">🚨</span>
   <span class="msg" style="display:flex; flex-direction:column; gap:2px;">EMERGENCY</span>
-      <button class="close" onclick="document.getElementById('emergencyBanner').classList.remove('show')">✕</button>
+      <button class="close" onclick="window.__stopEmergencyBanner && window.__stopEmergencyBanner()">✕</button>
     </div>
   </div>
+
+  <!-- Preloaded looping siren audio -->
+  <audio id="sirenAudio" src="assets/emergency-alarmsiren-type-01-no-copyright-410303.mp3" preload="auto" loop style="display:none"></audio>
 
   <div class="overlay card">
     <div class="overlay-top">
