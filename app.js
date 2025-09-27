@@ -666,7 +666,7 @@ function showEmergencyBanner(alert) {
   const hasLoc = (typeof alert.lat === 'number' && typeof alert.lng === 'number');
   const where = hasLoc ? `${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}` : 'Unknown location';
   const boat = alert.boatId || (typeof alert.boatId === 'number' ? String(alert.boatId) : (config.boatId || '—'));
-  const whenMs = typeof alert.timestamp === 'number' ? alert.timestamp : (typeof alert.id === 'number' ? alert.id : Date.now());
+  const whenMs = resolveAlertTimestamp(alert);
   const when = new Date(whenMs).toLocaleString();
   const rssi = (alert.rssi !== undefined && alert.rssi !== null) ? alert.rssi : '—';
   const snr = (alert.snr !== undefined && alert.snr !== null) ? alert.snr : '—';
@@ -728,4 +728,24 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// Timestamps can be from device millis or server time; resolve to a sane ms epoch
+function resolveAlertTimestamp(alert) {
+  const now = Date.now();
+  const MIN_TS = Date.UTC(2020, 0, 1);
+  let cand = null;
+  if (alert && typeof alert.timestamp === 'number') cand = alert.timestamp;
+  else if (alert && typeof alert.id === 'number') cand = alert.id;
+  if (typeof cand === 'number') {
+    let ms = cand;
+    // If very small (e.g., seconds), convert to ms
+    if (ms < 1e12) {
+      if (ms < 1e10) ms = ms * 1000; // seconds -> ms
+    }
+    // If it's in a reasonable window, accept it
+    if (ms >= MIN_TS && ms <= now + 10 * 60 * 1000) return ms;
+  }
+  // Fallback: use now
+  return now;
 }
