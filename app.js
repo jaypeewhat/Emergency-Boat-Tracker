@@ -59,6 +59,8 @@ let statusMarkerIcons = null;
 
 // Audio element handle
 let sirenEl = null;
+let sirenFallback = null; // fallback Audio() instance when direct play is blocked
+let audioUnlocked = false; // set true after first user gesture unlock
 
 init();
 
@@ -131,18 +133,30 @@ function init() {
   sirenEl = document.getElementById('sirenAudio');
   if (sirenEl) {
     sirenEl.volume = 0.7;
-    // Prime autoplay: start playback muted so we can unmute on alert
-    try {
-      sirenEl.muted = true;
-      const p = sirenEl.play();
-      if (p && typeof p.then === 'function') {
-        p.then(() => console.log('🔈 Siren primed (muted autoplay started)')).catch(err => {
-          console.warn('Autoplay prime blocked:', err?.message || err);
+    // One-time user-gesture unlock (no visible UI)
+    const unlock = () => {
+      if (!sirenEl) return;
+      const tryUnlock = sirenEl.play();
+      if (tryUnlock && typeof tryUnlock.then === 'function') {
+        tryUnlock.then(() => {
+          // Immediately pause; future plays should be allowed
+          sirenEl.pause();
+          sirenEl.currentTime = 0;
+          audioUnlocked = true;
+          document.removeEventListener('click', unlock);
+          document.removeEventListener('touchstart', unlock);
+          console.log('🔓 Audio unlocked by user gesture');
+        }).catch(() => {
+          // Keep listeners; user may interact again
         });
+      } else {
+        audioUnlocked = true;
+        document.removeEventListener('click', unlock);
+        document.removeEventListener('touchstart', unlock);
       }
-    } catch (e) {
-      console.warn('Autoplay prime exception:', e);
-    }
+    };
+    document.addEventListener('click', unlock, { passive: true, capture: true });
+    document.addEventListener('touchstart', unlock, { passive: true, capture: true });
   }
 
   // Expose a global stop function for the Close button
@@ -151,6 +165,10 @@ function init() {
     if (banner) banner.classList.remove('show');
     if (sirenEl) {
       try { sirenEl.pause(); sirenEl.currentTime = 0; } catch {}
+    }
+    if (sirenFallback) {
+      try { sirenFallback.pause(); sirenFallback.currentTime = 0; } catch {}
+      sirenFallback = null;
     }
   };
 }
@@ -686,14 +704,20 @@ function showEmergencyBanner(alert) {
   // Play alarm sound (looping) via preloaded element
   if (sirenEl) {
     try {
-      // If siren already playing muted from prime, just unmute and restart
+      sirenEl.muted = false; // ensure not muted on alert
       sirenEl.currentTime = 0;
-      sirenEl.muted = false;
       const playPromise = sirenEl.play();
       if (playPromise && typeof playPromise.then === 'function') {
         playPromise.catch(() => {
-          // Autoplay might still be blocked on some platforms (e.g., iOS Safari)
-          console.warn('Siren play blocked by browser policy');
+          // Fallback: create a fresh Audio instance and try to play
+          try {
+            sirenFallback = new Audio('assets/emergency-alarmsiren-type-01-no-copyright-410303.mp3');
+            sirenFallback.loop = true;
+            sirenFallback.volume = 0.7;
+            sirenFallback.play().catch(() => {
+              console.warn('Siren fallback play blocked by browser policy');
+            });
+          } catch {}
         });
       }
     } catch {}
@@ -704,6 +728,10 @@ function showEmergencyBanner(alert) {
     banner.classList.remove('show');
     if (sirenEl) {
       try { sirenEl.pause(); sirenEl.currentTime = 0; } catch {}
+    }
+    if (sirenFallback) {
+      try { sirenFallback.pause(); sirenFallback.currentTime = 0; } catch {}
+      sirenFallback = null;
     }
   }, 60000);
 }
