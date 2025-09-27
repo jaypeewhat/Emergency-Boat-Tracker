@@ -218,13 +218,15 @@ function handleData(d) {
   // Change detection: only use timestamp from LoRa data, not lastUpdate
   let changed = false;
   let actualNewData = false;
+  // Normalize incoming timestamp to ms (handles seconds vs ms, or uses lastUpdate as fallback)
+  const tsMs = resolveDataTimestamp(d);
   
   // Check if this is genuinely new LoRa data
-  if (typeof d.timestamp === "number") {
+  if (typeof tsMs === "number") {
     // On first load (lastTimestamp is null), check if data is recent
     if (lastTimestamp === null) {
       // Data is only considered "new" if timestamp is within last 30 seconds
-      const dataAge = Date.now() - d.timestamp;
+      const dataAge = Date.now() - tsMs;
       if (dataAge <= 30000) {
         changed = true;
         actualNewData = true;
@@ -232,17 +234,17 @@ function handleData(d) {
         console.log("📡 Recent LoRa data found on startup, age:", Math.round(dataAge/1000) + "s");
       } else {
         // Old data from cache - don't treat as new
-        lastSeenAt = d.timestamp; // Set lastSeenAt to actual data timestamp
+        lastSeenAt = tsMs; // Set lastSeenAt to actual data timestamp (normalized)
         console.log("📡 Old cached data found, age:", Math.round(dataAge/1000) + "s");
       }
-      lastTimestamp = d.timestamp;
-    } else if (d.timestamp !== lastTimestamp) {
+      lastTimestamp = tsMs;
+    } else if (tsMs !== lastTimestamp) {
       // Subsequent fetches - only new if timestamp changed
       changed = true;
       actualNewData = true;
-      lastTimestamp = d.timestamp;
+      lastTimestamp = tsMs;
       lastSeenAt = Date.now();
-      console.log("📡 New LoRa data received at timestamp:", d.timestamp);
+      console.log("📡 New LoRa data received at timestamp:", tsMs);
     }
   }
   
@@ -270,17 +272,17 @@ function handleData(d) {
     console.log(`🗺️ Map updated - Lat: ${d.lat.toFixed(6)}, Lng: ${d.lng.toFixed(6)}, RSSI: ${d.rssi}, SNR: ${d.snr}`);
   }
   
-  // Show age based on when we last saw NEW data
-  if (lastSeenAt) {
-    const timeSinceLastSeen = Date.now() - lastSeenAt;
-    
-    if (timeSinceLastSeen > 120000) {
-      // Over 2 minutes - show "Last detected at [time]"
-      const lastDetectedTime = new Date(lastSeenAt).toLocaleTimeString();
-      ageLabel.textContent = `Last detected at ${lastDetectedTime}`;
+  // Show age based on the data timestamp when available, otherwise when we last saw NEW data
+  const displayTs = (typeof tsMs === 'number') ? tsMs : lastSeenAt;
+  if (displayTs) {
+    const msAgo = Date.now() - displayTs;
+    if (msAgo > 120000) {
+      // Over 2 minutes - show explicit local date+time
+      const lastUpdated = new Date(displayTs).toLocaleString();
+      ageLabel.textContent = `Last updated at ${lastUpdated}`;
     } else {
       // Under 2 minutes - show relative time
-      ageLabel.textContent = relTime(timeSinceLastSeen);
+      ageLabel.textContent = relTime(msAgo);
     }
   } else {
     ageLabel.textContent = "—";
@@ -776,4 +778,31 @@ function resolveAlertTimestamp(alert) {
   }
   // Fallback: use now
   return now;
+}
+
+// Normalize boat data timestamp (device millis, unix seconds, or Firebase server timestamp)
+function resolveDataTimestamp(d) {
+  if (!d) return null;
+  const now = Date.now();
+  const MIN_TS = Date.UTC(2020, 0, 1);
+  // Prefer explicit data timestamp, fall back to lastUpdate from receiver
+  let cand = null;
+  if (typeof d.timestamp === 'number') cand = d.timestamp;
+  else if (typeof d.lastUpdate === 'number') cand = d.lastUpdate;
+  if (cand == null) return null;
+  let ms = cand;
+  // If small value like seconds or LoRa device seconds, multiply
+  if (ms < 1e12) {
+    if (ms < 1e10) ms = ms * 1000; // seconds -> ms
+  }
+  // Guard rails: only accept sane window (past 2020, not more than +10 min future)
+  if (ms >= MIN_TS && ms <= now + 10 * 60 * 1000) return ms;
+  // If out-of-range but looks like millis relative to app start (e.g., millis since boot), try anchoring
+  if (ms < MIN_TS && typeof d.millis === 'number') {
+    // Some firmwares send millis since boot; anchor to appStartTime as best-effort
+    const delta = d.millis; // assume ms
+    const anchored = startMillis() + delta;
+    if (anchored >= MIN_TS && anchored <= now + 10 * 60 * 1000) return anchored;
+  }
+  return null;
 }
