@@ -31,7 +31,7 @@
   <div id="emergencyBanner" class="emergency-banner">
     <div class="inner">
       <span class="icon">🚨</span>
-      <span class="msg">EMERGENCY</span>
+  <span class="msg" style="display:flex; flex-direction:column; gap:2px;">EMERGENCY</span>
       <button class="close" onclick="document.getElementById('emergencyBanner').classList.remove('show')">✕</button>
     </div>
   </div>
@@ -123,12 +123,15 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
   <style>
-    .emergency-banner{ position: fixed; left: 50%; transform: translateX(-50%) translateY(-8px); top: 84px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
-    .emergency-banner.show{ opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-    .emergency-banner .inner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:14px; border:2px solid rgba(255,255,255,0.15); background: linear-gradient(135deg, rgba(255,0,128,0.25), rgba(255,0,0,0.15)); box-shadow: 0 10px 30px rgba(255,0,128,0.3); backdrop-filter: blur(12px); color: #ffe4f1; }
-    .emergency-banner .icon{ filter: drop-shadow(0 0 10px rgba(255,0,128,0.6)); }
-    .emergency-banner .msg{ font-weight: 800; letter-spacing: .5px; }
-    .emergency-banner .close{ background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+    .emergency-banner{ position: fixed; left: 50%; transform: translateX(-50%) translateY(-12px); top: 84px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .4s, transform .4s; max-width: 90vw; }
+    .emergency-banner.show{ opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); animation: emergencyPulse 2s infinite; }
+    .emergency-banner .inner{ display:flex; align-items:center; gap:16px; padding:20px 24px; border-radius:20px; border:3px solid rgba(255,255,255,0.2); background: linear-gradient(135deg, rgba(255,0,128,0.35), rgba(255,0,0,0.25)); box-shadow: 0 15px 40px rgba(255,0,128,0.4), inset 0 1px 0 rgba(255,255,255,0.2); backdrop-filter: blur(16px); color: #fff; min-width: 320px; }
+    .emergency-banner .icon{ font-size: 28px; filter: drop-shadow(0 0 15px rgba(255,0,128,0.8)); animation: iconBounce 1s infinite; }
+    .emergency-banner .msg{ font-weight: 900; letter-spacing: 1px; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); flex: 1; }
+    .emergency-banner .close{ background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); color: #fff; border-radius: 12px; padding: 8px 12px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+    .emergency-banner .close:hover{ background: rgba(255,255,255,0.2); transform: scale(1.1); }
+    @keyframes emergencyPulse { 0%, 100% { box-shadow: 0 15px 40px rgba(255,0,128,0.4), inset 0 1px 0 rgba(255,255,255,0.2); } 50% { box-shadow: 0 20px 50px rgba(255,0,128,0.6), inset 0 1px 0 rgba(255,255,255,0.3); } }
+    @keyframes iconBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   </style>
 </body>
 </html>

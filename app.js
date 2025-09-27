@@ -54,6 +54,9 @@ let follow = true;           // keep view centered on marker
 let appStartTime = Date.now(); // Track when app started
 let lastAlertId = localStorage.getItem('lastAlertId') || null;
 
+// Cached custom marker icons for status
+let statusMarkerIcons = null;
+
 init();
 
 function init() {
@@ -70,6 +73,9 @@ function init() {
   }).addTo(map);
 
   trail = L.polyline([], { color: "#22c55e", weight: 3, opacity: 0.9 }).addTo(map);
+
+  // Prepare status-based marker icons once
+  statusMarkerIcons = createStatusMarkerIcons();
 
   // Show last known location if available
   showLastLocationIfExists();
@@ -236,26 +242,6 @@ function handleData(d) {
   const latlng = [d.lat, d.lng];
   const mapTimeSinceLastSeen = lastSeenAt ? Date.now() - lastSeenAt : 0;
   const isBoatMissing = mapTimeSinceLastSeen > 120000;
-  
-  if (!marker) {
-    marker = L.marker(latlng, { 
-      title: d.boatId || config.boatId,
-      opacity: isBoatMissing ? 0.5 : 1.0
-    }).addTo(map);
-  } else {
-    marker.setLatLng(latlng);
-    marker.setOpacity(isBoatMissing ? 0.5 : 1.0);
-  }
-  
-  // Update marker popup with status
-  const statusText = isBoatMissing ? 'Last Known Position' : 'Current Position';
-  marker.bindPopup(`
-    <div style="text-align: center;">
-      <strong>${statusText}</strong><br>
-      <em>${placeName}</em><br>
-      <small>${isBoatMissing ? 'Signal lost' : 'Active'}</small>
-    </div>
-  `);
 
   if (!firstFixDone) {
     map.setView(latlng, 15, { animate: true });
@@ -298,6 +284,30 @@ function handleData(d) {
   liveBadge.classList.remove("ok", "warn", "no-boat");
   liveBadge.classList.add(badgeClass);
   liveBadge.textContent = badgeState;
+
+  // Update map marker icon based on state
+  const statusKey = badgeState === 'LIVE' ? 'live' : (badgeState === 'STALE' ? 'stale' : (badgeState === 'NO BOAT' ? 'noboat' : 'stale'));
+  if (!marker) {
+    marker = L.marker(latlng, { 
+      title: d.boatId || config.boatId,
+      icon: getStatusMarkerIcon(statusKey),
+      opacity: isBoatMissing ? 0.8 : 1.0
+    }).addTo(map);
+  } else {
+    marker.setLatLng(latlng);
+    marker.setIcon(getStatusMarkerIcon(statusKey));
+    marker.setOpacity(isBoatMissing ? 0.8 : 1.0);
+  }
+
+  // Update marker popup with status
+  const statusText = badgeState === 'NO BOAT' ? 'Last Known Position' : (badgeState === 'STALE' ? 'Stale Position' : 'Current Position');
+  marker.bindPopup(`
+    <div style="text-align: center;">
+      <strong>${statusText}</strong><br>
+      <em>${placeName}</em><br>
+      <small>${badgeState}</small>
+    </div>
+  `);
   
   // Enhanced debug logging
   if (lastSeenAt) {
@@ -305,6 +315,37 @@ function handleData(d) {
     const ageMinutes = Math.round(ageSeconds/60);
     console.log(`🔍 Status: ${badgeState}, age: ${ageSeconds}s (${ageMinutes}m)`);
   }
+}
+
+// Create reusable DivIcons for status-based marker pins
+function createStatusMarkerIcons() {
+  const size = 26; // px
+  const anchor = [size/2, size/2 + 2];
+  return {
+    live: L.divIcon({
+      className: 'marker-pin marker-pin-live',
+      iconSize: [size, size],
+      iconAnchor: anchor,
+      popupAnchor: [0, -size/2]
+    }),
+    stale: L.divIcon({
+      className: 'marker-pin marker-pin-stale',
+      iconSize: [size, size],
+      iconAnchor: anchor,
+      popupAnchor: [0, -size/2]
+    }),
+    noboat: L.divIcon({
+      className: 'marker-pin marker-pin-noboat',
+      iconSize: [size, size],
+      iconAnchor: anchor,
+      popupAnchor: [0, -size/2]
+    })
+  };
+}
+
+function getStatusMarkerIcon(key) {
+  if (!statusMarkerIcons) statusMarkerIcons = createStatusMarkerIcons();
+  return statusMarkerIcons[key] || statusMarkerIcons.stale;
 }
 
 function addToTrail(latlng) {
@@ -592,13 +633,37 @@ function showEmergencyBanner(alert) {
   const banner = document.getElementById('emergencyBanner');
   if (!banner) return;
   const msg = alert.message || 'EMERGENCY';
-  const where = (typeof alert.lat === 'number' && typeof alert.lng === 'number')
-    ? `@ ${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}`
-    : '';
-  banner.querySelector('.msg').textContent = `${msg} ${where}`.trim();
+  const hasLoc = (typeof alert.lat === 'number' && typeof alert.lng === 'number');
+  const where = hasLoc ? `${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}` : 'Unknown location';
+  const boat = alert.boatId || (typeof alert.boatId === 'number' ? String(alert.boatId) : (config.boatId || '—'));
+  const whenMs = typeof alert.timestamp === 'number' ? alert.timestamp : (typeof alert.id === 'number' ? alert.id : Date.now());
+  const when = new Date(whenMs).toLocaleString();
+  const rssi = (alert.rssi !== undefined && alert.rssi !== null) ? alert.rssi : '—';
+  const snr = (alert.snr !== undefined && alert.snr !== null) ? alert.snr : '—';
+
+  const msgEl = banner.querySelector('.msg');
+  if (msgEl) {
+    msgEl.innerHTML = `
+      <div style="font-size:16px; font-weight:900; letter-spacing:0.5px; margin-bottom:4px;">${escapeHtml(String(msg))}</div>
+      <div style="font-size:13px; opacity:0.95;">
+        <strong>Boat:</strong> ${escapeHtml(boat)} &nbsp;•&nbsp; <strong>Time:</strong> ${escapeHtml(when)}<br/>
+        <strong>Location:</strong> ${escapeHtml(where)} &nbsp;•&nbsp; <strong>Signal:</strong> RSSI ${escapeHtml(String(rssi))}, SNR ${escapeHtml(String(snr))}
+      </div>
+    `;
+  }
   banner.classList.add('show');
-  // auto-hide after 20s (kept accessible via a Close button)
-  setTimeout(() => banner.classList.remove('show'), 20000);
+  
+  // Play alarm sound
+  try {
+    const audio = new Audio('assets/emergency-alarmsiren-type-01-no-copyright-410303.mp3');
+    audio.volume = 0.7;
+    audio.play().catch(() => console.log('Audio play blocked by browser'));
+  } catch (e) {
+    console.log('Audio not available:', e);
+  }
+  
+  // auto-hide after 1 minute (kept accessible via Close button)
+  setTimeout(() => banner.classList.remove('show'), 60000);
 }
 
 function pushNotification(alert) {
@@ -611,4 +676,14 @@ function pushNotification(alert) {
   try {
     new Notification('🚨 Boat Emergency', { body });
   } catch {}
+}
+
+// Basic HTML escaper to avoid injecting unsafe content into banner
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
