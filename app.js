@@ -6,6 +6,7 @@ const DEFAULT_BOAT_ID = "BOAT_001";
 const POLL_INTERVAL_MS = 3000; // REST polling cadence
 const DISTANCE_THRESHOLD_M = 5; // add to trail if moved > 5 m
 const MAX_TRAIL_POINTS = 300;   // keep last N points client-side
+const ALERT_POLL_MS = 4000;     // alert polling cadence
 
 // Connection modes
 const CONNECTION_FIREBASE = 'firebase';
@@ -46,10 +47,12 @@ let trailCoords = [];
 let firstFixDone = false;
 let lastTimestamp = null;
 let fetchTimer = null;
+let alertTimer = null;
 let lastSeenAt = null;       // wall-clock when we last detected a NEW change from LoRa
 let lastUpdateSeen = null;   // last value of d.lastUpdate for change detection
 let follow = true;           // keep view centered on marker
 let appStartTime = Date.now(); // Track when app started
+let lastAlertId = localStorage.getItem('lastAlertId') || null;
 
 init();
 
@@ -113,6 +116,7 @@ function init() {
   if (clearHistoryBtn) clearHistoryBtn.addEventListener("click", clearLocationHistory);
 
   startPolling();
+  startAlertPolling();
 }
 
 function startPolling() {
@@ -557,4 +561,54 @@ function loadHistoryData() {
   `;
   
   container.innerHTML = tableHTML;
+}
+
+function startAlertPolling() {
+  if (alertTimer) clearInterval(alertTimer);
+  // Ask for notification permission once
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+  const poll = () => {
+    const base = (config.dbUrl || DEFAULT_DB_URL).replace(/\/$/, "");
+    const url = `${base}/alerts/latest.json`;
+    fetch(url, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(alert => {
+        if (!alert || !alert.id) return;
+        if (lastAlertId === alert.id) return; // already seen
+        lastAlertId = alert.id;
+        localStorage.setItem('lastAlertId', lastAlertId);
+        showEmergencyBanner(alert);
+        pushNotification(alert);
+      })
+      .catch(() => {});
+  };
+  poll();
+  alertTimer = setInterval(poll, ALERT_POLL_MS);
+}
+
+function showEmergencyBanner(alert) {
+  const banner = document.getElementById('emergencyBanner');
+  if (!banner) return;
+  const msg = alert.message || 'EMERGENCY';
+  const where = (typeof alert.lat === 'number' && typeof alert.lng === 'number')
+    ? `@ ${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}`
+    : '';
+  banner.querySelector('.msg').textContent = `${msg} ${where}`.trim();
+  banner.classList.add('show');
+  // auto-hide after 20s (kept accessible via a Close button)
+  setTimeout(() => banner.classList.remove('show'), 20000);
+}
+
+function pushNotification(alert) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  const body = (alert.message || 'EMERGENCY') +
+    ((typeof alert.lat === 'number' && typeof alert.lng === 'number')
+      ? `\n${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}`
+      : '');
+  try {
+    new Notification('🚨 Boat Emergency', { body });
+  } catch {}
 }

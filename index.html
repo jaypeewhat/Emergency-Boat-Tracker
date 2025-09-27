@@ -27,6 +27,14 @@
   </header>
 
   <div id="map"></div>
+  <!-- Emergency Banner -->
+  <div id="emergencyBanner" class="emergency-banner">
+    <div class="inner">
+      <span class="icon">🚨</span>
+      <span class="msg">EMERGENCY</span>
+      <button class="close" onclick="document.getElementById('emergencyBanner').classList.remove('show')">✕</button>
+    </div>
+  </div>
 
   <div class="overlay card">
     <div class="overlay-top">
@@ -114,5 +122,13 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+  <style>
+    .emergency-banner{ position: fixed; left: 50%; transform: translateX(-50%) translateY(-8px); top: 84px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+    .emergency-banner.show{ opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+    .emergency-banner .inner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:14px; border:2px solid rgba(255,255,255,0.15); background: linear-gradient(135deg, rgba(255,0,128,0.25), rgba(255,0,0,0.15)); box-shadow: 0 10px 30px rgba(255,0,128,0.3); backdrop-filter: blur(12px); color: #ffe4f1; }
+    .emergency-banner .icon{ filter: drop-shadow(0 0 10px rgba(255,0,128,0.6)); }
+    .emergency-banner .msg{ font-weight: 800; letter-spacing: .5px; }
+    .emergency-banner .close{ background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  </style>
 </body>
 </html>
