@@ -131,6 +131,18 @@ function init() {
   sirenEl = document.getElementById('sirenAudio');
   if (sirenEl) {
     sirenEl.volume = 0.7;
+    // Prime autoplay: start playback muted so we can unmute on alert
+    try {
+      sirenEl.muted = true;
+      const p = sirenEl.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => console.log('🔈 Siren primed (muted autoplay started)')).catch(err => {
+          console.warn('Autoplay prime blocked:', err?.message || err);
+        });
+      }
+    } catch (e) {
+      console.warn('Autoplay prime exception:', e);
+    }
   }
 
   // Expose a global stop function for the Close button
@@ -674,11 +686,14 @@ function showEmergencyBanner(alert) {
   // Play alarm sound (looping) via preloaded element
   if (sirenEl) {
     try {
+      // If siren already playing muted from prime, just unmute and restart
       sirenEl.currentTime = 0;
+      sirenEl.muted = false;
       const playPromise = sirenEl.play();
       if (playPromise && typeof playPromise.then === 'function') {
         playPromise.catch(() => {
-          // Autoplay might be blocked on some browsers until a user gesture; still try silently
+          // Autoplay might still be blocked on some platforms (e.g., iOS Safari)
+          console.warn('Siren play blocked by browser policy');
         });
       }
     } catch {}
