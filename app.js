@@ -858,17 +858,37 @@ function loadAlertsHistory() {
         container.innerHTML = '<div class="no-data">No alerts found</div>';
         return;
       }
-      const arr = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
-      const items = arr.map(a => ({
-        id: a && a.id != null ? String(a.id) : '-',
-        boatId: a && a.boatId != null ? String(a.boatId) : '-',
-        message: a && a.message != null ? String(a.message) : 'EMERGENCY',
-        lat: (a && typeof a.lat === 'number') ? a.lat : null,
-        lng: (a && typeof a.lng === 'number') ? a.lng : null,
-        rssi: (a && (a.rssi !== undefined && a.rssi !== null)) ? a.rssi : '—',
-        snr: (a && (a.snr !== undefined && a.snr !== null)) ? a.snr : '—',
-        ts: resolveAlertTimestamp(a)
-      }));
+      // Convert map to array and exclude 'latest' helper node
+      let arr = [];
+      if (Array.isArray(data)) {
+        arr = data.filter(Boolean);
+      } else if (data && typeof data === 'object') {
+        for (const [k, v] of Object.entries(data)) {
+          if (k === 'latest') continue; // exclude mirror node
+          arr.push(v);
+        }
+      }
+      // Normalize and coerce numeric string fields; drop invalid timestamps
+      const items = [];
+      const seen = new Set();
+      for (const a of arr) {
+        if (!a) continue;
+        const idStr = (a.id != null) ? String(a.id) : '-';
+        if (seen.has(idStr)) continue;
+        const ts = resolveAlertTimestampStrict(a);
+        if (!ts) continue; // skip entries with invalid/unknown timestamps
+        seen.add(idStr);
+        items.push({
+          id: idStr,
+          boatId: a.boatId != null ? String(a.boatId) : '-',
+          message: a.message != null ? String(a.message) : 'EMERGENCY',
+          lat: (typeof a.lat === 'number') ? a.lat : null,
+          lng: (typeof a.lng === 'number') ? a.lng : null,
+          rssi: (a.rssi !== undefined && a.rssi !== null) ? a.rssi : '—',
+          snr: (a.snr !== undefined && a.snr !== null) ? a.snr : '—',
+          ts
+        });
+      }
       items.sort((x,y) => y.ts - x.ts);
       const recent = items.slice(0, 50);
       if (recent.length === 0) {
@@ -909,4 +929,26 @@ function loadAlertsHistory() {
     .catch(() => {
       container.innerHTML = '<div class="no-data">Failed to load alerts</div>';
     });
+}
+
+// Strict resolver for alerts history: return null on invalid timestamp instead of using now
+function resolveAlertTimestampStrict(alert) {
+  const now = Date.now();
+  const MIN_TS = Date.UTC(2020, 0, 1);
+  let cand = null;
+  if (alert && (typeof alert.timestamp === 'number' || typeof alert.timestamp === 'string')) {
+    const n = Number(alert.timestamp);
+    cand = Number.isFinite(n) ? n : null;
+  } else if (alert && (typeof alert.id === 'number' || typeof alert.id === 'string')) {
+    const n = Number(alert.id);
+    cand = Number.isFinite(n) ? n : null;
+  }
+  if (typeof cand === 'number') {
+    let ms = cand;
+    if (ms < 1e12) {
+      if (ms < 1e10) ms = ms * 1000; // seconds -> ms
+    }
+    if (ms >= MIN_TS && ms <= now + 10 * 60 * 1000) return ms;
+  }
+  return null;
 }
