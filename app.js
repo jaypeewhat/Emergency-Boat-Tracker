@@ -246,6 +246,15 @@ function handleData(d) {
       lastSeenAt = Date.now();
       console.log("📡 New LoRa data received at timestamp:", tsMs);
     }
+  } else {
+    // No usable timestamp provided
+    if (lastTimestamp === null) {
+      // First payload seen: treat as freshly seen now so UI doesn't stay on WAITING
+      actualNewData = true;
+      lastSeenAt = Date.now();
+      lastTimestamp = 0; // sentinel to mark we've initialized
+      console.log("📡 Data received without timestamp; treating first payload as fresh now");
+    }
   }
   
   // Always update labels to show current data (even if old)
