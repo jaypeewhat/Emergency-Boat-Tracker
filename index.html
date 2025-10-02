@@ -20,6 +20,7 @@
       <button id="followBtn" class="chip" title="Toggle follow">Follow</button>
       <button id="fitBtn" class="chip" title="Fit trail">Fit</button>
       <button id="clearBtn" class="chip" title="Clear trail">Clear</button>
+  <button id="alertsBtn" class="chip" title="View emergency alerts">Alerts</button>
       <button id="historyBtn" class="chip" title="View trip history">History</button>
       <button id="aboutBtn" class="chip" title="About & Developers">About</button>
       <span id="liveBadge" class="badge warn">WAITING</span>
@@ -80,6 +81,27 @@
       </div>
       <div class="modal-actions">
         <button id="closeAbout" class="btn">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Emergency Alerts Modal -->
+  <dialog id="alertsModal" class="modal">
+    <div class="modal-card">
+      <h2>Emergency Alerts</h2>
+      <p class="muted">Recent emergency signals received from the boat</p>
+
+      <div class="history-table-container">
+        <div class="table-header">
+          <h3>Recent Alerts</h3>
+        </div>
+        <div class="history-table" id="alertsTableContainer">
+          <div class="loading">Loading alerts...</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="closeAlerts" class="btn">Close</button>
       </div>
     </div>
   </dialog>

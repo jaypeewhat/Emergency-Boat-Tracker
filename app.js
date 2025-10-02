@@ -32,6 +32,10 @@ const historyModal = document.getElementById("historyModal");
 const closeAbout = document.getElementById("closeAbout");
 const closeHistory = document.getElementById("closeHistory");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+// Alerts history UI
+const alertsBtn = document.getElementById("alertsBtn");
+const alertsModal = document.getElementById("alertsModal");
+const closeAlerts = document.getElementById("closeAlerts");
 
 // State
 let config = { 
@@ -122,8 +126,15 @@ function init() {
       historyModal.showModal();
     }
   });
+  if (alertsBtn) alertsBtn.addEventListener("click", () => {
+    if (alertsModal && typeof alertsModal.showModal === 'function') {
+      loadAlertsHistory();
+      alertsModal.showModal();
+    }
+  });
   if (closeAbout) closeAbout.addEventListener("click", () => { aboutModal?.close(); });
   if (closeHistory) closeHistory.addEventListener("click", () => { historyModal?.close(); });
+  if (closeAlerts) closeAlerts.addEventListener("click", () => { alertsModal?.close(); });
   if (clearHistoryBtn) clearHistoryBtn.addEventListener("click", clearLocationHistory);
 
   startPolling();
@@ -136,20 +147,27 @@ function init() {
     // One-time user-gesture unlock (no visible UI)
     const unlock = () => {
       if (!sirenEl) return;
+      // Mute during unlock to avoid audible blip on mobile, and KEEP muted after
+      sirenEl.muted = true;
       const tryUnlock = sirenEl.play();
       if (tryUnlock && typeof tryUnlock.then === 'function') {
         tryUnlock.then(() => {
           // Immediately pause; future plays should be allowed
           sirenEl.pause();
           sirenEl.currentTime = 0;
+          // Keep muted after unlock; only emergency will unmute
+          sirenEl.muted = true;
           audioUnlocked = true;
           document.removeEventListener('click', unlock);
           document.removeEventListener('touchstart', unlock);
           console.log('🔓 Audio unlocked by user gesture');
         }).catch(() => {
           // Keep listeners; user may interact again
+          sirenEl.muted = true;
         });
       } else {
+        // Ensure stays muted
+        sirenEl.muted = true;
         audioUnlocked = true;
         document.removeEventListener('click', unlock);
         document.removeEventListener('touchstart', unlock);
@@ -218,6 +236,7 @@ function handleData(d) {
   // Change detection: only use timestamp from LoRa data, not lastUpdate
   let changed = false;
   let actualNewData = false;
+  let unknownTime = false; // true if we synthesize freshness due to missing timestamps
   // Normalize incoming timestamp to ms (handles seconds vs ms, or uses lastUpdate as fallback)
   const tsMs = resolveDataTimestamp(d);
   
@@ -256,9 +275,11 @@ function handleData(d) {
         lastTimestamp = -1; // initialized without a valid server timestamp
         console.log("📡 No timestamp in payload; using cached last known time:", new Date(cached.timestamp).toLocaleString());
       } else {
-        // No cache either; keep lastSeenAt null so UI can show WAITING until a real timestamp arrives
+        // No cache either; show marker and set status to STALE with unknown time context
+        lastSeenAt = Date.now() - 60000; // pretend last seen 1 minute ago -> STALE
+        unknownTime = true;
         lastTimestamp = -1;
-        console.log("📡 No timestamp and no cache; waiting for timed data to determine freshness");
+        console.log("📡 No timestamp and no cache; showing as STALE (time unknown)");
       }
     }
   }
@@ -294,10 +315,10 @@ function handleData(d) {
     if (msAgo > 120000) {
       // Over 2 minutes - show explicit local date+time
       const lastUpdated = new Date(displayTs).toLocaleString();
-      ageLabel.textContent = `Last updated at ${lastUpdated}`;
+      ageLabel.textContent = `Last updated at ${lastUpdated}${unknownTime ? ' (time unknown)' : ''}`;
     } else {
       // Under 2 minutes - show relative time
-      ageLabel.textContent = relTime(msAgo);
+      ageLabel.textContent = `${relTime(msAgo)}${unknownTime ? ' (time unknown)' : ''}`;
     }
   } else {
     ageLabel.textContent = "—";
@@ -722,6 +743,7 @@ function showEmergencyBanner(alert) {
   if (sirenEl) {
     try {
       sirenEl.muted = false; // ensure not muted on alert
+      sirenEl.volume = 0.7;
       sirenEl.currentTime = 0;
       const playPromise = sirenEl.play();
       if (playPromise && typeof playPromise.then === 'function') {
@@ -820,4 +842,71 @@ function resolveDataTimestamp(d) {
     if (anchored >= MIN_TS && anchored <= now + 10 * 60 * 1000) return anchored;
   }
   return null;
+}
+
+// Load emergency alerts history from Firebase and render to modal
+function loadAlertsHistory() {
+  const container = document.getElementById('alertsTableContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">Loading alerts...</div>';
+  const base = (config.dbUrl || DEFAULT_DB_URL).replace(/\/$/, "");
+  const url = `${base}/alerts.json`;
+  fetch(url, { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) {
+        container.innerHTML = '<div class="no-data">No alerts found</div>';
+        return;
+      }
+      const arr = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+      const items = arr.map(a => ({
+        id: a && a.id != null ? String(a.id) : '-',
+        boatId: a && a.boatId != null ? String(a.boatId) : '-',
+        message: a && a.message != null ? String(a.message) : 'EMERGENCY',
+        lat: (a && typeof a.lat === 'number') ? a.lat : null,
+        lng: (a && typeof a.lng === 'number') ? a.lng : null,
+        rssi: (a && (a.rssi !== undefined && a.rssi !== null)) ? a.rssi : '—',
+        snr: (a && (a.snr !== undefined && a.snr !== null)) ? a.snr : '—',
+        ts: resolveAlertTimestamp(a)
+      }));
+      items.sort((x,y) => y.ts - x.ts);
+      const recent = items.slice(0, 50);
+      if (recent.length === 0) {
+        container.innerHTML = '<div class="no-data">No alerts found</div>';
+        return;
+      }
+      let html = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Boat</th>
+              <th>Message</th>
+              <th>Location</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      for (const it of recent) {
+        const when = new Date(it.ts).toLocaleString();
+        const where = (typeof it.lat === 'number' && typeof it.lng === 'number')
+          ? `${it.lat.toFixed(6)}, ${it.lng.toFixed(6)}`
+          : 'Unknown';
+        html += `
+          <tr>
+            <td>${escapeHtml(when)}</td>
+            <td>${escapeHtml(it.boatId)}</td>
+            <td class="place-name">${escapeHtml(it.message)}</td>
+            <td class="coordinates">${escapeHtml(where)}</td>
+            <td class="age">RSSI ${escapeHtml(String(it.rssi))}, SNR ${escapeHtml(String(it.snr))}</td>
+          </tr>
+        `;
+      }
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    })
+    .catch(() => {
+      container.innerHTML = '<div class="no-data">Failed to load alerts</div>';
+    });
 }
