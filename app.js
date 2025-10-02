@@ -249,11 +249,17 @@ function handleData(d) {
   } else {
     // No usable timestamp provided
     if (lastTimestamp === null) {
-      // First payload seen: treat as freshly seen now so UI doesn't stay on WAITING
-      actualNewData = true;
-      lastSeenAt = Date.now();
-      lastTimestamp = 0; // sentinel to mark we've initialized
-      console.log("📡 Data received without timestamp; treating first payload as fresh now");
+      // First payload: avoid incorrectly marking LIVE. Prefer cached last known time if available.
+      const cached = getLastLocation();
+      if (cached && typeof cached.timestamp === 'number' && cached.timestamp > 0) {
+        lastSeenAt = cached.timestamp;
+        lastTimestamp = -1; // initialized without a valid server timestamp
+        console.log("📡 No timestamp in payload; using cached last known time:", new Date(cached.timestamp).toLocaleString());
+      } else {
+        // No cache either; keep lastSeenAt null so UI can show WAITING until a real timestamp arrives
+        lastTimestamp = -1;
+        console.log("📡 No timestamp and no cache; waiting for timed data to determine freshness");
+      }
     }
   }
   
