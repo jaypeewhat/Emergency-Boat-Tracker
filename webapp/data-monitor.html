@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time Data Monitor - Boat Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">📊</span>
+      <div class="stack">
+        <h1>Real-time Data Monitor</h1>
+        <p class="muted">Monitor LoRa data reception vs Firebase updates</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="clearLog" class="chip">Clear Log</button>
+      <a href="index.html" class="chip">Back to Map</a>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <div class="setup-card card">
+      <h2>📡 Data Reception Status</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <span class="label">Connection Status</span>
+          <span id="connectionStatus" class="value">Connecting...</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Last LoRa Data</span>
+          <span id="lastLoraData" class="value">Never</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Firebase Updates</span>
+          <span id="firebaseUpdates" class="value">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📈 Current GPS Data</h3>
+      <div class="gps-display">
+        <div class="gps-item">
+          <span class="label">Boat ID:</span>
+          <span id="boatId" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">Latitude:</span>
+          <span id="latitude" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">Longitude:</span>
+          <span id="longitude" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">RSSI:</span>
+          <span id="rssi" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">SNR:</span>
+          <span id="snr" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">LoRa Timestamp:</span>
+          <span id="loraTimestamp" class="value">—</span>
+        </div>
+        <div class="gps-item">
+          <span class="label">Last Update:</span>
+          <span id="lastUpdate" class="value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Activity Log</h3>
+      <p class="muted">Real-time log of data reception and updates</p>
+      <div id="activityLog" class="activity-log">
+        <div class="log-entry info">
+          <span class="timestamp">[Starting]</span>
+          <span class="message">Monitoring Firebase for LoRa data...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💡 Understanding the Data Flow</h3>
+      <div class="explanation">
+        <div class="flow-step">
+          <h4>📡 LoRa Reception</h4>
+          <p><strong>LoRa Timestamp:</strong> Only changes when new GPS data is received from the boat's LoRa transmitter</p>
+        </div>
+        <div class="flow-step">
+          <h4>🔥 Firebase Upload</h4>
+          <p><strong>Last Update:</strong> Updates every time Arduino uploads to Firebase (previously every 5 seconds, now only when new LoRa data is received)</p>
+        </div>
+        <div class="flow-step">
+          <h4>🌐 Web Interface</h4>
+          <p><strong>Display Update:</strong> Only updates when LoRa Timestamp changes (indicating actual new boat data)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+
+    .gps-display {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .gps-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background: var(--glass);
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .gps-item .label {
+      color: var(--muted);
+      font-size: 0.9em;
+    }
+
+    .gps-item .value {
+      color: var(--text);
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    .activity-log {
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--glass-border);
+    }
+
+    .log-entry {
+      margin-bottom: 0.5rem;
+      font-family: monospace;
+      font-size: 0.85em;
+      line-height: 1.4;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .log-entry.info {
+      color: var(--accent-light);
+    }
+
+    .log-entry.success {
+      color: var(--ok);
+    }
+
+    .log-entry.warning {
+      color: var(--warn);
+    }
+
+    .log-entry .timestamp {
+      color: var(--muted);
+      margin-right: 1rem;
+    }
+
+    .explanation {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .flow-step {
+      padding: 1.5rem;
+      background: var(--glass);
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .flow-step h4 {
+      margin: 0 0 1rem 0;
+      color: var(--accent-light);
+    }
+
+    .flow-step p {
+      margin: 0;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    @media (max-width: 768px) {
+      .status-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <script src="data-monitor.js"></script>
+</body>
+</html>

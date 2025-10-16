@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auto Sheets Sync - Boat Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">📊</span>
+      <div class="stack">
+        <h1>Auto Google Sheets Sync</h1>
+        <p class="muted">Firebase → Google Sheets automation</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="connectBtn" class="chip">Connect Google Sheets</button>
+      <button id="syncBtn" class="chip" disabled>Sync Now</button>
+      <a href="add-port.html" class="chip">🏠 Add Port</a>
+      <a href="url-validator.html" class="chip">🔍 Validator</a>
+      <a href="setup-guide.html" class="chip">📖 Setup Guide</a>
+      <a href="how-it-works.html" class="chip">How It Works</a>
+      <span id="statusBadge" class="badge warn">Disconnected</span>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <div class="setup-card card">
+      <h3>🔗 Setup Instructions</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>Create Google Sheet</h4>
+            <p>Create a new Google Sheet for your boat trips</p>
+            <button id="createSheetBtn" class="btn">📝 Create Sheet Template</button>
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>Get Sheet ID</h4>
+            <p>Copy the Sheet ID from your Google Sheets URL</p>
+            <input type="text" id="sheetIdInput" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" class="sheet-input">
+          </div>
+        </div>
+        
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>Auto Sync Settings</h4>
+            <div class="sync-options">
+              <label class="checkbox">
+                <input type="checkbox" id="autoSyncEnabled" checked>
+                Enable automatic sync every 5 minutes
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" id="realTimeSync">
+                Real-time sync (experimental)
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sync-status card">
+      <h3>📈 Sync Status</h3>
+      <div class="status-grid">
+        <div class="status-item">
+          <span class="label">Last Sync</span>
+          <span id="lastSyncTime" class="value">Never</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Records Synced</span>
+          <span id="recordCount" class="value">0</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Sheet Status</span>
+          <span id="sheetStatus" class="value">Not Connected</span>
+        </div>
+      </div>
+      
+      <div class="sync-log">
+        <h4>Sync Log</h4>
+        <div id="syncLog" class="log-container">
+          <div class="log-entry">Ready to sync...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-card card">
+      <h3>🔍 Data Preview</h3>
+      <p class="muted">Preview of data that will be synced to Google Sheets</p>
+      <div class="preview-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Boat ID</th>
+              <th>Event</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="previewTableBody">
+            <tr><td colspan="7">Loading preview data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Apps Script deployment modal -->
+  <dialog id="gasModal" class="modal">
+    <div class="modal-card">
+      <h2>🔧 Google Apps Script Setup</h2>
+      <p>Since direct Google Sheets API requires authentication, we'll use Google Apps Script as a bridge.</p>
+      
+      <div class="setup-instructions">
+        <h3>Step-by-Step Setup:</h3>
+        <ol>
+          <li><strong>Open Google Apps Script:</strong> <a href="https://script.google.com" target="_blank">script.google.com</a></li>
+          <li><strong>Create New Project</strong> and paste the code below</li>
+          <li><strong>Deploy as Web App</strong> with "Execute as: Me" and "Access: Anyone"</li>
+          <li><strong>Copy the deployment URL</strong> and paste it below</li>
+        </ol>
+        
+        <h4>Apps Script Code:</h4>
+        <textarea id="gasCode" readonly class="code-area">
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheetId = data.sheetId;
+    const records = data.records;
+    
+    const sheet = SpreadsheetApp.openById(sheetId).getActiveSheet();
+    
+    // Add headers if empty
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, 7).setValues([[
+        'Date', 'Time', 'Boat ID', 'Event', 'Latitude', 'Longitude', 'Signal'
+      ]]);
+    }
+    
+    // Add new records
+    records.forEach(record => {
+      const date = new Date(record.timestamp);
+      sheet.appendRow([
+        date.toLocaleDateString(),
+        date.toLocaleTimeString(),
+        record.boatId,
+        record.event,
+        record.latitude,
+        record.longitude,
+        record.rssi + ' dBm (' + record.snr + ' dB)'
+      ]);
+    });
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({success: true, count: records.length}))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({success: false, error: error.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+        </textarea>
+        
+        <h4>Deployment URL:</h4>
+        <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="sheet-input">
+        
+        <div class="modal-actions">
+          <button id="copyCodeBtn" class="btn">📋 Copy Code</button>
+          <button id="saveGasBtn" class="btn primary">✅ Save & Connect</button>
+          <button id="closeGasBtn" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="sheets-sync.js"></script>
+</body>
+</html>

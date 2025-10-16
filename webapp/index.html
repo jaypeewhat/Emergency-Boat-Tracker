@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boat Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">⛵</span>
+      <div class="stack">
+        <h1>Boat Tracker for Emergency</h1>
+        <p class="muted">Realtime location for rapid response</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="followBtn" class="chip" title="Toggle follow">Follow</button>
+      <button id="fitBtn" class="chip" title="Fit trail">Fit</button>
+      <button id="clearBtn" class="chip" title="Clear trail">Clear</button>
+      <button id="aboutBtn" class="chip" title="About & Developers">About</button>
+      <span id="liveBadge" class="badge warn">WAITING</span>
+    </div>
+  </header>
+
+  <div id="map"></div>
+  <!-- Emergency Banner -->
+  <div id="emergencyBanner" class="emergency-banner">
+    <div class="inner">
+      <span class="icon">🚨</span>
+      <span class="msg">EMERGENCY</span>
+      <button class="close" onclick="document.getElementById('emergencyBanner').classList.remove('show')">✕</button>
+    </div>
+  </div>
+
+  <div class="overlay card">
+    <div class="overlay-top">
+      <div class="title" id="boatIdLabel">BOAT_001</div>
+    </div>
+    <div class="grid">
+      <div class="kv"><span>Lat</span><span id="latLabel">—</span></div>
+      <div class="kv"><span>Lng</span><span id="lngLabel">—</span></div>
+      <div class="kv"><span>RSSI</span><span id="rssiLabel">—</span></div>
+      <div class="kv"><span>SNR</span><span id="snrLabel">—</span></div>
+      <div class="kv"><span>Updated</span><span id="ageLabel">—</span></div>
+    </div>
+  </div>
+
+  <button id="centerBtn" class="fab" title="Center & Follow">⌖</button>
+
+  <!-- About Modal -->
+  <dialog id="aboutModal" class="modal">
+    <div class="modal-card">
+      <h2>About</h2>
+      <p class="muted">Boat Tracker for Emergency — a simple, fast viewer for realtime GPS.</p>
+      <div class="split">
+        <div>
+          <h3>Features</h3>
+          <ul>
+            <li>Live map and follow mode</li>
+            <li>Trail breadcrumbs</li>
+            <li>One-click center and fit</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Developers</h3>
+          <ul>
+            <li>John Angelo Galves</li>
+            <li>Dhan Mark Mamore</li>
+            <li>Danica Tumalad</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeAbout" class="btn">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+  <style>
+    .emergency-banner{ position: fixed; left: 50%; transform: translateX(-50%) translateY(-8px); top: 84px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+    .emergency-banner.show{ opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+    .emergency-banner .inner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:14px; border:2px solid rgba(255,255,255,0.15); background: linear-gradient(135deg, rgba(255,0,128,0.25), rgba(255,0,0,0.15)); box-shadow: 0 10px 30px rgba(255,0,128,0.3); backdrop-filter: blur(12px); color: #ffe4f1; }
+    .emergency-banner .icon{ filter: drop-shadow(0 0 10px rgba(255,0,128,0.6)); }
+    .emergency-banner .msg{ font-weight: 800; letter-spacing: .5px; }
+    .emergency-banner .close{ background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  </style>
+</body>
+</html>

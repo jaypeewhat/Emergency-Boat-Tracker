@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Port Location - Boat Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏠</span>
+      <div class="stack">
+        <h1>Add Port Location</h1>
+        <p class="muted">Manually add departure/arrival events</p>
+      </div>
+    </div>
+    <div class="actions">
+      <a href="sheets-sync.html" class="chip">📊 Auto Sync</a>
+      <a href="index.html" class="chip">Back to Map</a>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <div class="setup-card card">
+      <h2>🏠 Add Port/Harbor Location</h2>
+      <p class="muted">Add a manual trip event to test the Google Sheets sync system or record port locations.</p>
+      
+      <form id="portForm" class="port-form">
+        <div class="form-group">
+          <label for="boatId">Boat ID:</label>
+          <input type="text" id="boatId" value="BOAT_001" class="form-input">
+        </div>
+
+        <div class="form-group">
+          <label for="eventType">Event Type:</label>
+          <select id="eventType" class="form-input">
+            <option value="DEPARTURE">🚢 Departure (Leaving Port)</option>
+            <option value="ARRIVAL">⚓ Arrival (Entering Port)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="latitude">Latitude:</label>
+          <input type="number" id="latitude" step="0.000001" placeholder="14.123456" class="form-input">
+          <small>Example: 14.123456 (Decimal degrees)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="longitude">Longitude:</label>
+          <input type="number" id="longitude" step="0.000001" placeholder="121.654321" class="form-input">
+          <small>Example: 121.654321 (Decimal degrees)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="portName">Port/Location Name (Optional):</label>
+          <input type="text" id="portName" placeholder="Manila Harbor, Pier 1" class="form-input">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="getCurrentLocation" class="btn secondary">📍 Use My Location</button>
+          <button type="submit" class="btn primary">✅ Add Trip Event</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>📍 Common Philippine Ports</h3>
+      <p class="muted">Click on any port to auto-fill coordinates</p>
+      
+      <div class="ports-grid">
+        <div class="port-item" data-lat="14.6042" data-lng="120.9822" data-name="Manila North Harbor">
+          <h4>Manila North Harbor</h4>
+          <p>14.6042, 120.9822</p>
+        </div>
+        
+        <div class="port-item" data-lat="14.5832" data-lng="120.9746" data-name="Manila South Harbor">
+          <h4>Manila South Harbor</h4>
+          <p>14.5832, 120.9746</p>
+        </div>
+        
+        <div class="port-item" data-lat="10.3157" data-lng="123.8854" data-name="Cebu International Port">
+          <h4>Cebu International Port</h4>
+          <p>10.3157, 123.8854</p>
+        </div>
+        
+        <div class="port-item" data-lat="7.0731" data-lng="125.6128" data-name="Davao Sasa Port">
+          <h4>Davao Sasa Port</h4>
+          <p>7.0731, 125.6128</p>
+        </div>
+        
+        <div class="port-item" data-lat="11.0041" data-lng="123.0054" data-name="Iloilo Commercial Port">
+          <h4>Iloilo Commercial Port</h4>
+          <p>11.0041, 123.0054</p>
+        </div>
+        
+        <div class="port-item" data-lat="8.2280" data-lng="124.2452" data-name="Cagayan de Oro Port">
+          <h4>Cagayan de Oro Port</h4>
+          <p>8.2280, 124.2452</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📊 Recent Events</h3>
+      <p class="muted">Last 5 trip events added</p>
+      <div id="recentEvents" class="recent-events">
+        <div class="loading">Loading recent events...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💡 Tips</h3>
+      <ul class="tips-list">
+        <li><strong>Test the System:</strong> Add a departure event, then check if it appears in Google Sheets</li>
+        <li><strong>GPS Format:</strong> Use decimal degrees (not degrees/minutes/seconds)</li>
+        <li><strong>Accuracy:</strong> More decimal places = more precise location (6 digits recommended)</li>
+        <li><strong>Signal Quality:</strong> Manual events use default values (-80 dBm, 8.0 dB)</li>
+        <li><strong>Timestamp:</strong> Events are recorded with current date/time</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="add-port.js"></script>
+</body>
+</html>

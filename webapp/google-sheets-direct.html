@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Sheets Direct Upload - GPS Boat ESP32</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">📊</span>
+      <div class="stack">
+        <h1>Google Sheets Direct Upload</h1>
+        <p class="muted">Direct upload to your Gps_Boat_ESP32 Google Sheet</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="testConnection" class="chip">🧪 Test Script</button>
+      <a href="index.html" class="chip">Back to Map</a>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <div class="setup-card card">
+      <h2>📊 Google Apps Script Configuration</h2>
+      <p class="muted">Configure your Google Apps Script deployment URL</p>
+      
+      <div class="config-form">
+        <div class="form-group">
+          <label for="scriptUrl">Google Apps Script URL:</label>
+          <textarea id="scriptUrl" placeholder="https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec" class="script-input"></textarea>
+          <small>Paste your Google Apps Script Web App deployment URL here</small>
+        </div>
+        
+        <button id="saveUrl" class="btn primary">💾 Save URL</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🚢 Manual Trip Entry</h2>
+      <p class="muted">Manually log departure and arrival events to test the system</p>
+      
+      <div class="trip-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="boatName">Boat Name:</label>
+            <input type="text" id="boatName" value="BOAT_001" class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label for="eventType">Event Type:</label>
+            <select id="eventType" class="form-input">
+              <option value="DEPARTURE">🚢 Departure</option>
+              <option value="ARRIVAL">⚓ Arrival</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="latitude">Latitude:</label>
+            <input type="number" id="latitude" step="0.000001" placeholder="14.123456" class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label for="longitude">Longitude:</label>
+            <input type="number" id="longitude" step="0.000001" placeholder="121.654321" class="form-input">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="locationName">Location Name (Optional):</label>
+          <input type="text" id="locationName" placeholder="Manila Harbor, Pier 1" class="form-input">
+        </div>
+        
+        <button id="sendTrip" class="btn primary">📊 Send to Google Sheets</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 Your Google Sheet Structure</h2>
+      <p class="muted">This is how your data will appear in Google Sheets</p>
+      
+      <div class="sheet-preview">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Origin</th>
+              <th>Destination</th>
+              <th>Boat Name</th>
+              <th>Arrival Time</th>
+              <th>Departure Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2025-09-26</td>
+              <td>Manila Harbor</td>
+              <td>Cebu Port</td>
+              <td>BOAT_001</td>
+              <td>14:30:45</td>
+              <td>08:15:22</td>
+            </tr>
+            <tr>
+              <td>2025-09-26</td>
+              <td>14.123456, 121.654321</td>
+              <td></td>
+              <td>BOAT_001</td>
+              <td></td>
+              <td>16:22:10</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔧 Setup Instructions</h2>
+      <div class="setup-steps">
+        <div class="step">
+          <h3>1. 📝 Create Google Apps Script</h3>
+          <p>Go to <a href="https://script.google.com" target="_blank">script.google.com</a> and create a new project</p>
+          <p>Copy the code from <code>GoogleAppsScript_GPS_Boat.gs</code> file</p>
+        </div>
+        
+        <div class="step">
+          <h3>2. 🚀 Deploy as Web App</h3>
+          <p>Click Deploy → New Deployment → Web app</p>
+          <p>Settings: Execute as "Me", Access "Anyone"</p>
+          <p>Copy the deployment URL</p>
+        </div>
+        
+        <div class="step">
+          <h3>3. 🔗 Configure URL</h3>
+          <p>Paste the deployment URL in the field above and click "Save URL"</p>
+        </div>
+        
+        <div class="step">
+          <h3>4. 🧪 Test the Connection</h3>
+          <p>Use the manual trip entry form to test if data appears in your Google Sheet</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="logArea" class="card" style="display: none;">
+      <h3>📝 Activity Log</h3>
+      <div id="activityLog" class="activity-log"></div>
+    </div>
+  </div>
+
+  <style>
+    .config-form, .trip-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 600px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .script-input {
+      width: 100%;
+      min-height: 80px;
+      padding: 1rem;
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      color: var(--text);
+      font-family: monospace;
+      font-size: 0.9em;
+      resize: vertical;
+    }
+
+    .script-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+    }
+
+    .sheet-preview {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+
+    .setup-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .step {
+      padding: 1.5rem;
+      background: var(--glass);
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .step h3 {
+      margin: 0 0 1rem 0;
+      color: var(--accent-light);
+    }
+
+    .step p {
+      margin: 0.5rem 0;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .step a {
+      color: var(--accent-light);
+      text-decoration: none;
+    }
+
+    .step a:hover {
+      text-decoration: underline;
+    }
+
+    .step code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        flex-direction: column;
+      }
+    }
+  </style>
+
+  <script src="google-sheets-direct.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boat Trip Log - Excel Export</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">📊</span>
+      <div class="stack">
+        <h1>Boat Trip Log</h1>
+        <p class="muted">Departure & Arrival Records</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="refreshBtn" class="chip">Refresh</button>
+      <button id="exportBtn" class="chip">Export to Excel</button>
+      <a href="index.html" class="chip">Back to Map</a>
+    </div>
+  </header>
+
+  <div class="trip-container">
+    <div class="trip-stats card">
+      <h3>Trip Summary</h3>
+      <div class="stats-grid">
+        <div class="stat"><span>Total Trips</span><span id="totalTrips">0</span></div>
+        <div class="stat"><span>Today</span><span id="todayTrips">0</span></div>
+        <div class="stat"><span>This Week</span><span id="weekTrips">0</span></div>
+      </div>
+    </div>
+
+    <div class="trip-table card">
+      <h3>Trip History</h3>
+      <div class="table-controls">
+        <button id="csvBtn" class="btn">Download CSV</button>
+        <button id="copyBtn" class="btn">Copy to Clipboard</button>
+      </div>
+      <div class="table-wrapper">
+        <table id="tripTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Boat ID</th>
+              <th>Event</th>
+              <th>Time</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="tripTableBody">
+            <tr><td colspan="7" class="loading">Loading trip data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="trips.js"></script>
+</body>
+</html>

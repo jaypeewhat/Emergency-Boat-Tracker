@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Direct NodeMCU Connection - Boat Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🔗</span>
+      <div class="stack">
+        <h1>Direct NodeMCU Connection</h1>
+        <p class="muted">Connect directly to your NodeMCU without Firebase</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="scanBtn" class="chip">🔍 Scan Network</button>
+      <button id="connectBtn" class="chip" disabled>Connect</button>
+      <span id="statusBadge" class="badge warn">Disconnected</span>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <div class="setup-card card">
+      <h2>🔗 Direct Connection Setup</h2>
+      <p class="muted">Connect directly to your NodeMCU for real-time data without external services</p>
+      
+      <div class="connection-form">
+        <div class="form-group">
+          <label for="nodeMcuIp">NodeMCU IP Address:</label>
+          <input type="text" id="nodeMcuIp" placeholder="192.168.1.100" class="form-input" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+          <small>Enter the IP address shown on your NodeMCU serial monitor</small>
+        </div>
+
+        <div class="form-group">
+          <label for="nodeMcuPort">Port:</label>
+          <input type="number" id="nodeMcuPort" value="80" class="form-input" min="1" max="65535">
+          <small>Default port is 80 (usually no need to change)</small>
+        </div>
+
+        <div class="connection-actions">
+          <button id="testConnection" class="btn secondary">🧪 Test Connection</button>
+          <button id="saveConnection" class="btn primary">💾 Save & Connect</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📡 Connection Status</h3>
+      <div class="status-grid">
+        <div class="status-item">
+          <span class="label">Connection</span>
+          <span id="connectionStatus" class="value">Not Connected</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Last Data</span>
+          <span id="lastDataTime" class="value">Never</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Data Source</span>
+          <span id="dataSource" class="value">—</span>
+        </div>
+      </div>
+      
+      <div id="connectionDetails" class="connection-details" style="display: none;">
+        <h4>📊 Current GPS Data</h4>
+        <div class="gps-display">
+          <div class="gps-item">
+            <span class="label">Boat ID:</span>
+            <span id="currentBoatId" class="value">—</span>
+          </div>
+          <div class="gps-item">
+            <span class="label">Latitude:</span>
+            <span id="currentLat" class="value">—</span>
+          </div>
+          <div class="gps-item">
+            <span class="label">Longitude:</span>
+            <span id="currentLng" class="value">—</span>
+          </div>
+          <div class="gps-item">
+            <span class="label">RSSI:</span>
+            <span id="currentRssi" class="value">—</span>
+          </div>
+          <div class="gps-item">
+            <span class="label">SNR:</span>
+            <span id="currentSnr" class="value">—</span>
+          </div>
+          <div class="gps-item">
+            <span class="label">Last Update:</span>
+            <span id="currentTimestamp" class="value">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔍 Network Scanner</h3>
+      <p class="muted">Scan your local network for NodeMCU devices</p>
+      <div id="scanResults" class="scan-results">
+        <div class="scan-placeholder">Click "🔍 Scan Network" to find NodeMCU devices on your network</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💡 How to Find Your NodeMCU IP</h3>
+      <div class="help-steps">
+        <div class="help-step">
+          <h4>1. 📱 Check Serial Monitor</h4>
+          <p>Open Arduino IDE Serial Monitor at 115200 baud. The IP address is displayed when NodeMCU connects to WiFi.</p>
+        </div>
+        
+        <div class="help-step">
+          <h4>2. 🔍 Use Network Scanner</h4>
+          <p>Click "🔍 Scan Network" above to automatically discover NodeMCU devices on your network.</p>
+        </div>
+        
+        <div class="help-step">
+          <h4>3. 🖥️ Check Router Admin</h4>
+          <p>Log into your router (usually 192.168.1.1 or 192.168.0.1) and look for connected devices.</p>
+        </div>
+        
+        <div class="help-step">
+          <h4>4. 📡 Direct Access</h4>
+          <p>Once connected, you can access NodeMCU directly at <code>http://[IP-ADDRESS]</code> for the built-in dashboard.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>⚡ Advantages of Direct Connection</h3>
+      <ul class="advantages-list">
+        <li><strong>🚀 Faster:</strong> No internet dependency, direct local network communication</li>
+        <li><strong>🔒 Private:</strong> Data stays on your local network, no external services</li>
+        <li><strong>💰 Free:</strong> No Firebase costs or external service dependencies</li>
+        <li><strong>🎯 Simple:</strong> Direct API calls to NodeMCU endpoints</li>
+        <li><strong>⚡ Real-time:</strong> Instant updates without cloud delays</li>
+        <li><strong>🛡️ Offline:</strong> Works even without internet connection</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="direct-connection.js"></script>
+</body>
+</html>

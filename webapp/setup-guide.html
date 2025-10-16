@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Setup Guide - Boat Tracker Auto Sync</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">📖</span>
+      <div class="stack">
+        <h1>Complete Setup Guide</h1>
+        <p class="muted">Step-by-step instructions for auto Google Sheets sync</p>
+      </div>
+    </div>
+    <div class="actions">
+      <a href="url-validator.html" class="chip">🔍 URL Validator</a>
+      <a href="sheets-sync.html" class="chip">Go to Auto Sync</a>
+      <a href="index.html" class="chip">Back to Map</a>
+    </div>
+  </header>
+
+  <div class="sync-container">
+    <!-- Step 1: Create Google Sheet -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">1</span>
+        <h2>Create Your Google Sheet</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>📝 Method 1: Use Template Button</h3>
+        <ol>
+          <li>Go to <a href="sheets-sync.html" target="_blank">Auto Sync page</a></li>
+          <li>Click <strong>"📝 Create Sheet Template"</strong> button</li>
+          <li>This opens a new Google Sheet in your browser</li>
+          <li>Give it a name like "Boat Trip Log" and save</li>
+        </ol>
+
+        <h3>📊 Method 2: Manual Creation</h3>
+        <ol>
+          <li>Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a></li>
+          <li>Click <strong>"+ Blank"</strong> to create new sheet</li>
+          <li>Name your sheet (e.g., "Boat Trip Log")</li>
+          <li>The system will auto-create headers when first sync runs</li>
+        </ol>
+
+        <div class="important-note">
+          <h4>📋 Your sheet will get these columns:</h4>
+          <code>Date | Time | Boat ID | Event | Latitude | Longitude | Signal</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Get Sheet ID -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">2</span>
+        <h2>Get Your Sheet ID</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🔗 Extract ID from URL</h3>
+        <p>Your Google Sheets URL looks like this:</p>
+        <div class="url-example">
+          <code>https://docs.google.com/spreadsheets/d/<span class="highlight">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</span>/edit#gid=0</code>
+        </div>
+        <p>Copy only the highlighted part - that's your Sheet ID!</p>
+
+        <div class="visual-guide">
+          <h4>Visual Guide:</h4>
+          <div class="url-breakdown">
+            <div class="url-part ignore">https://docs.google.com/spreadsheets/d/</div>
+            <div class="url-part important">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</div>
+            <div class="url-part ignore">/edit#gid=0</div>
+          </div>
+          <p class="instruction">👆 Copy only the middle part (the long random string)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Google Apps Script -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">3</span>
+        <h2>Setup Google Apps Script</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🔧 Create the Script</h3>
+        <ol>
+          <li>Open <a href="https://script.google.com" target="_blank">script.google.com</a></li>
+          <li>Click <strong>"+ New Project"</strong></li>
+          <li>Replace the default code with the code below</li>
+          <li>Save the project (Ctrl+S) and give it a name like "Boat Sync"</li>
+        </ol>
+
+        <h4>📝 Copy this exact code:</h4>
+        <textarea id="gasCode" readonly class="code-area">
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheetId = data.sheetId;
+    const records = data.records;
+    
+    const sheet = SpreadsheetApp.openById(sheetId).getActiveSheet();
+    
+    // Add headers if empty
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, 7).setValues([[
+        'Date', 'Time', 'Boat ID', 'Event', 'Latitude', 'Longitude', 'Signal'
+      ]]);
+    }
+    
+    // Add new records
+    records.forEach(record => {
+      const date = new Date(record.timestamp);
+      sheet.appendRow([
+        date.toLocaleDateString(),
+        date.toLocaleTimeString(),
+        record.boatId,
+        record.event,
+        record.latitude,
+        record.longitude,
+        record.rssi + ' dBm (' + record.snr + ' dB)'
+      ]);
+    });
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({success: true, count: records.length}))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({success: false, error: error.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+        </textarea>
+        
+        <button id="copyCodeBtn" class="btn primary">📋 Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Deploy -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">4</span>
+        <h2>Deploy as Web App</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🚀 Deployment Steps</h3>
+        <ol>
+          <li>In Google Apps Script, click <strong>"Deploy"</strong> → <strong>"New Deployment"</strong></li>
+          <li>Click the gear icon ⚙️ next to "Select type"</li>
+          <li>Choose <strong>"Web app"</strong></li>
+          <li>Fill in these settings:
+            <ul>
+              <li><strong>Description:</strong> "Boat Tracker Sync"</li>
+              <li><strong>Execute as:</strong> "Me"</li>
+              <li><strong>Who has access:</strong> "Anyone"</li>
+            </ul>
+          </li>
+          <li>Click <strong>"Deploy"</strong></li>
+          <li>⚠️ <strong>Authorization Required:</strong> Click "Authorize access" and allow permissions</li>
+          <li>📋 <strong>IMPORTANT - Copy the correct URL:</strong><br>
+            <div class="url-examples">
+              <div class="url-correct">
+                <strong>✅ CORRECT Web App URL:</strong><br>
+                <code>https://script.google.com/macros/s/AKfycbx.../exec</code>
+              </div>
+              <div class="url-wrong">
+                <strong>❌ WRONG Library URL:</strong><br>
+                <code>https://script.google.com/macros/library/d/.../</code>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <div class="warning-note">
+          <h4>⚠️ Important Security Note:</h4>
+          <p>When you authorize, Google will warn that the app is "unverified". This is normal because it's your personal script. Click "Advanced" → "Go to [Project Name] (unsafe)" to proceed.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Connect Web App -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">5</span>
+        <h2>Connect to Web App</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🔗 Final Configuration</h3>
+        <ol>
+          <li>Go back to <a href="sheets-sync.html" target="_blank">Auto Sync page</a></li>
+          <li>Click <strong>"Connect Google Sheets"</strong> button</li>
+          <li>In the modal that opens:
+            <ul>
+              <li>Paste your <strong>Sheet ID</strong> (from Step 2)</li>
+              <li>Paste your <strong>Apps Script URL</strong> (from Step 4)</li>
+            </ul>
+          </li>
+          <li>Click <strong>"Save & Connect"</strong></li>
+          <li>Status should change to <span class="badge success">Connected</span></li>
+        </ol>
+
+        <h3>✅ Test the Connection</h3>
+        <ol>
+          <li>Click <strong>"Sync Now"</strong> to test</li>
+          <li>Check your Google Sheet - you should see trip data appear!</li>
+          <li>Enable <strong>"Auto-sync every 5 minutes"</strong> for automatic updates</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="setup-card card">
+      <div class="step-header">
+        <span class="step-number">🔧</span>
+        <h2>Troubleshooting</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🚨 Common Issues & Solutions</h3>
+        
+        <div class="troubleshoot-item">
+          <h4>❌ "CORS Error" or "Failed to fetch"</h4>
+          <p><strong>Cause:</strong> You're using the wrong URL type (Library URL instead of Web App URL)</p>
+          <p><strong>Solution:</strong> 
+            <br>• Make sure you deployed as "Web app" (not Library)
+            <br>• Use URL that ends with <code>/exec</code>
+            <br>• URL should look like: <code>https://script.google.com/macros/s/AKfycbx.../exec</code>
+            <br>• NOT: <code>https://script.google.com/macros/library/d/...</code>
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h4>❌ "Script function not found"</h4>
+          <p><strong>Solution:</strong> Make sure you copied the entire Apps Script code and saved it (Ctrl+S)</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h4>❌ "Authorization required" error</h4>
+          <p><strong>Solution:</strong> Re-deploy the script and make sure to authorize access when prompted</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h4>❌ "No new records to sync"</h4>
+          <p><strong>Solution:</strong> Make sure your Arduino is running and generating trip events (departure/arrival)</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h4>❌ Sheet ID not working</h4>
+          <p><strong>Solution:</strong> Double-check the Sheet ID - it should be the long string from your Google Sheets URL, not the entire URL</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h4>❌ "Access denied" error</h4>
+          <p><strong>Solution:</strong> Make sure your Google Sheet is accessible by your account and the Apps Script has proper permissions</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success -->
+    <div class="setup-card card success-card">
+      <div class="step-header">
+        <span class="step-number">✅</span>
+        <h2>You're All Set!</h2>
+      </div>
+      
+      <div class="step-content">
+        <h3>🎉 What Happens Now</h3>
+        <ul class="success-list">
+          <li>Your Arduino detects boat movements automatically</li>
+          <li>Departure and arrival events are logged to Firebase</li>
+          <li>Every 5 minutes, new events sync to your Google Sheet</li>
+          <li>You get a clean, organized spreadsheet for analysis</li>
+          <li>No manual work required!</li>
+        </ul>
+
+        <div class="final-links">
+          <a href="sheets-sync.html" class="btn primary">Go to Auto Sync Dashboard</a>
+          <a href="index.html" class="btn">View Live Map</a>
+          <a href="trips.html" class="btn">View Trip History</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('copyCodeBtn').addEventListener('click', function() {
+      const code = document.getElementById('gasCode');
+      code.select();
+      navigator.clipboard.writeText(code.value).then(function() {
+        const btn = document.getElementById('copyCodeBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    });
+  </script>
+
+  <style>
+    .setup-card {
+      margin-bottom: 2rem;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .step-header .step-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      color: white;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 1.2em;
+      flex-shrink: 0;
+      animation: pulse 2s infinite;
+    }
+
+    .step-header h2 {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .step-content ol, .step-content ul {
+      line-height: 1.8;
+    }
+
+    .step-content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .url-example {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      font-family: monospace;
+      overflow-x: auto;
+    }
+
+    .url-example .highlight {
+      background: var(--accent);
+      color: white;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .visual-guide {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--glass);
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .url-breakdown {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 1rem 0;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    .url-part {
+      padding: 8px 12px;
+      margin: 2px;
+      border-radius: 4px;
+    }
+
+    .url-part.ignore {
+      background: rgba(128, 128, 128, 0.2);
+      color: var(--muted);
+    }
+
+    .url-part.important {
+      background: var(--accent);
+      color: white;
+      font-weight: bold;
+    }
+
+    .instruction {
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent-light);
+      margin: 1rem 0;
+    }
+
+    .important-note {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    .warning-note {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    .warning-note h4 {
+      color: var(--warn);
+      margin: 0 0 0.5rem 0;
+    }
+
+    .url-examples {
+      margin: 1rem 0;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+    }
+
+    .url-correct {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 6px;
+    }
+
+    .url-correct strong {
+      color: #10b981;
+    }
+
+    .url-wrong {
+      padding: 1rem;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 6px;
+    }
+
+    .url-wrong strong {
+      color: #ef4444;
+    }
+
+    .url-examples code {
+      display: block;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    .troubleshoot-item {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .troubleshoot-item:last-child {
+      border-bottom: none;
+    }
+
+    .troubleshoot-item h4 {
+      color: var(--danger);
+      margin: 0 0 0.5rem 0;
+    }
+
+    .success-card {
+      background: linear-gradient(135deg, 
+        rgba(16, 185, 129, 0.1) 0%, 
+        rgba(59, 130, 246, 0.1) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .success-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .success-list li {
+      padding: 0.5rem 0;
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .success-list li:before {
+      content: '✅';
+      position: absolute;
+      left: 0;
+      top: 0.5rem;
+    }
+
+    .final-links {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .final-links .btn {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    @media (max-width: 768px) {
+      .sync-container {
+        padding: 1rem;
+        padding-top: 90px;
+      }
+
+      .url-breakdown {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .final-links {
+        flex-direction: column;
+      }
+      
+      .final-links .btn {
+        min-width: auto;
+      }
+    }
+  </style>
+</body>
+</html>
