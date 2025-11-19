@@ -87,12 +87,49 @@ function init() {
       setTimeout(() => fitBtn.style.transform = '', 150);
     }
   });
+  // Clear button - removes trail points one by one (oldest first)
   clearBtn.addEventListener("click", () => { 
-    trailCoords = []; 
-    trail.setLatLngs([]); 
+    if (trailCoords.length > 0) {
+      trailCoords.shift(); // Remove oldest point
+      trail.setLatLngs(trailCoords);
+      console.log(`Removed 1 point, ${trailCoords.length} remaining`);
+    }
     clearBtn.style.transform = 'scale(0.9)';
     setTimeout(() => clearBtn.style.transform = '', 150);
   });
+  
+  // Clear History button - clears all trail at once
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', () => {
+      const count = trailCoords.length;
+      trailCoords = [];
+      trail.setLatLngs([]);
+      console.log(`Cleared all ${count} location points`);
+      clearHistoryBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => clearHistoryBtn.style.transform = '', 150);
+    });
+  }
+  
+  // Clear Alerts button - clears alert history and hides emergency banner
+  const clearAlertsBtn = document.getElementById('clearAlertsBtn');
+  if (clearAlertsBtn) {
+    clearAlertsBtn.addEventListener('click', () => {
+      // Clear alert localStorage
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        if (k.startsWith('alert_') || k === 'lastAlertId') localStorage.removeItem(k);
+      });
+      lastAlertId = null;
+      // Hide emergency banner
+      const banner = document.getElementById('emergencyBanner');
+      if (banner) banner.classList.remove('show');
+      console.log('Alerts cleared');
+      clearAlertsBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => clearAlertsBtn.style.transform = '', 150);
+    });
+  }
+  
   aboutBtn.addEventListener("click", () => { 
     if (aboutModal && typeof aboutModal.showModal === 'function') aboutModal.showModal(); 
   });
